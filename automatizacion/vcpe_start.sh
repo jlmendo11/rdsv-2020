@@ -46,9 +46,9 @@ echo "--Connecting vCPE service with AccessNet and ExtNet..."
 
 sudo ovs-docker add-port AccessNet veth0 $VNF1
 # Tiene que llamarse ethX para que lo detecte VyOs
-sleep 1
+sleep 5
 sudo ovs-docker add-port ExtNet eth2 $VNF2
-sleep 1
+sleep 8
 
 echo "--"
 echo "--Setting VNF..."
@@ -57,15 +57,23 @@ echo "--Bridge Creating..."
 
 ## 1. En VNF:vclass agregar un bridge y asociar interfaces.
 sudo docker exec -it $VNF1 ovs-vsctl add-br br0 -- set bridge br0 other-config:hwaddr=\"00:00:00:00:12:34\"
+sleep 1
 sudo docker exec -it $VNF1 ifconfig veth0 $VNFTUNIP/24
+sleep 1
 # sudo docker exec -it $VNF1 ovs-vsctl add-port br0 vxlan1 -- set interface vxlan1 type=vxlan options:remote_ip=$HOMETUNIP
 ## sudo docker exec -it $VNF1 ovs-vsctl add-port br0 vxlan2 -- set interface vxlan2 type=vxlan options:remote_ip=$IP21
 sudo docker exec -it $VNF1 ip link add vxlan1 type vxlan id 0 remote $HOMETUNIP dstport 4789 dev veth0 # tunel 
+sleep 1
 sudo docker exec -it $VNF1 ip link add vxlan2 type vxlan id 1 remote $IP21 dstport 4789 dev $ETH11     # vyos
+sleep 1
 sudo docker exec -it $VNF1 ovs-vsctl add-port br0 vxlan1
+sleep 1
 sudo docker exec -it $VNF1 ovs-vsctl add-port br0 vxlan2
+sleep 1
 sudo docker exec -it $VNF1 ifconfig vxlan1 up
+sleep 1
 sudo docker exec -it $VNF1 ifconfig vxlan2 up
+sleep 8
 
 ## 2. En VNF:vcpe agregar un bridge y asociar interfaces.
 # sudo docker exec -it $VNF2 ovs-vsctl add-br br1
@@ -143,8 +151,12 @@ save
 exit
 "
 
+sleep 5
+
 # Comandos RYU
 sudo docker exec -d $VNF1 bash -c "ryu-manager ryu.app.rest_qos ryu.app.rest_conf_switch ./qos_simple_switch_13.py"
+
+sleep 10
 
 sudo docker exec -it $VNF1 bash -c "
 # Como el dpid es un stringify de la MAC address del bridge OVS, tenemos que asegurarnos de que en la creacion
@@ -153,19 +165,22 @@ sudo docker exec -it $VNF1 bash -c "
 
 # Unimos al br0 como qos switch
 ovs-vsctl set bridge br0 protocols=OpenFlow13
+sleep 1
 ovs-vsctl set-manager ptcp:6632
+sleep 1
 ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
-sleep 5
+sleep 10
 
 # Le decimos a la API rest que identifique nuestro switch
 # curl -X PUT -d 'tcp:127.0.0.1:6632' http://127.0.0.1:8080/v1.0/conf/switches/0000000000001234/ovsdb_addr
 curl -X PUT -d '\"tcp:127.0.0.1:6632\"' http://127.0.0.1:8080/v1.0/conf/switches/0000000000001234/ovsdb_addr
-sleep 5
+sleep 8
 
 # Ponemos una cola nueva en la interfaz 'vxlan1' (izquierda)
 # curl -X POST -d '{'port_name': 'vxlan1', 'type': 'linux-htb', 'max_rate': '12000000', 'queues': [{'min_rate': '8000000'}, {'max_rate': '4000000'}]}' http://127.0.0.1:8080/qos/queue/0000000000001234
 curl -X POST -d '{\"port_name\": \"vxlan1\", \"type\": \"linux-htb\", \"max_rate\": \"12000000\", \"queues\": [{\"min_rate\": \"8000000\"}, {\"max_rate\": \"4000000\"}]}' http://127.0.0.1:8080/qos/queue/0000000000001234
-sleep 2
+sleep 7
+echo ''
 
 # Configurar los flujos que matchean con estas colas
 # 192.168.255.20 --> h11
@@ -173,7 +188,9 @@ sleep 2
 #curl -X POST -d '{'match': {'nw_dst': '192.168.255.20'}, 'actions':{'queue': '0'}}' http://127.0.0.1:8080/qos/rules/0000000000001234
 #curl -X POST -d '{'match': {'nw_dst': '192.168.255.21'}, 'actions':{'queue': '1'}}' http://127.0.0.1:8080/qos/rules/0000000000001234
 curl -X POST -d '{\"match\": {\"nw_dst\": \"192.168.255.20\"}, \"actions\":{\"queue\": \"0\"}}' http://127.0.0.1:8080/qos/rules/0000000000001234
-sleep 2
+sleep 5
+echo ''
 curl -X POST -d '{\"match\": {\"nw_dst\": \"192.168.255.21\"}, \"actions\":{\"queue\": \"1\"}}' http://127.0.0.1:8080/qos/rules/0000000000001234
 sleep 3
+echo ''
 "

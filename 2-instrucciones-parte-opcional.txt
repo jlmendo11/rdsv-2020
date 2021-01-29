@@ -1,0 +1,31 @@
+# Con el escenario levantado, comprobar cual es el puerto dinamico asignado al EXPOSE 6633 del docker "mn.vcpe-1-1"
+# docker ps | grep 6633
+# ejemplo: <PUERTO> = 32769
+
+
+# Desde la consola de brg1, anyadir las siguientes lineas para cambiarle la MAC al bridge subyacente 
+# y que este sea controlado mediante OpenFlow a traves del ryu
+# ovs-vsctl set bridge br0 other-config:hwaddr=\"00:00:00:00:66:66\"
+# ovs-vsctl set bridge br0 protocols=OpenFlow13
+# ovs-vsctl set-manager ptcp:6632
+# ovs-vsctl set-controller br0 tcp:10.255.0.1:6633
+# Todo esto se lanza con un 
+sudo vnx -f vnx/nfv3_home_lxc_ubuntu64.xml -v --execute qos-opcional
+
+# Comprobar que hemos hecho lo correcto con
+# Desde brg1
+ovs-vsctl show # Deberiamos ver el manager en tcp:6632 y el controlador en 10.10.101.2:<PUERTO>
+ip l | grep '66:66' 
+# Desde local
+sudo docker exec -it mn.dc1_vcpe-1-1-ubuntu-1 bash -c 'ss -tanop | grep 6633' # Deberiamos ver:
+                                                                              # 1 x El listener
+                                                                              # 2 x La conexion con el OVS del docker (al estar en la misma maquina)
+                                                                              # 1 x La conexion con el OVS de brg1 (al NO estar en la misma maquina)
+
+
+# Una vez realizada esta parte, ejecutar el script "scripts/opcional-qos-brg1.sh" que contiene las llamadas a la API REST de ryu
+cd ~/Desktop/NFV-LAB-2020
+./scripts/opcional-qos-brg1.sh
+
+# para comprobar que las colas estan puestas, desde brg1 nos tienen que salir 2
+ovs-ofctl -O OpenFlow13 queue-stats br0

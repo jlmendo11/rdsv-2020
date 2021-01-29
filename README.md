@@ -18,13 +18,13 @@ dhclient
 Y COMPROBAR QUE TIENEN LA 192.168.255.20 Y 21!!! LA QOS VA POR IP!!!
 
 # En h11, h12, h21, h22:
-iperf -s -i 1 -p 5001
+iperf -s -u -i 1 -p 5001
 
 # En VyOS 
 # sudo docker exec -it mn.vcpe-1-2-ubuntu-1 bash
 # sudo docker exec -it mn.vcpe-2-2-ubuntu-1 bash
-iperf -c 192.168.255.20 -p 5001 -t 5 -b 50M
-iperf -c 192.168.255.21 -p 5001 -t 5 -b 50M
+iperf -c 192.168.255.20 -p 5001 -u 5 -b 50M
+iperf -c 192.168.255.21 -p 5001 -u 5 -b 50M
 
 
 
